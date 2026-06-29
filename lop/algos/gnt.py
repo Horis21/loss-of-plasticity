@@ -76,6 +76,14 @@ class GnT(object):
         bounds.append(1 * sqrt(3 / self.net[self.num_hidden_layers * 2].in_features))
         return bounds
 
+    # Used by BP, so that utility scores are updated, but neurons are not replaced
+    def update_utility_for_logging(self, features):
+        for i in range(self.num_hidden_layers):
+            self.ages[i] += 1
+            self.update_utility(layer_idx=i, features=features[i])
+
+        # self.save_cur_utils()
+
     def update_utility(self, layer_idx=0, features=None, next_features=None):
         with torch.no_grad():
             self.util[layer_idx] *= self.decay_rate

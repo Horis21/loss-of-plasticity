@@ -1,0 +1,3 @@
+for cfg in temp_cfg/*.json; do
+    python3.8 online_expr.py -c "$cfg"
+done

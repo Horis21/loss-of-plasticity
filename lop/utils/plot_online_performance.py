@@ -2,6 +2,53 @@ import numpy as np
 from math import sqrt
 import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+
+
+def generate_utility_histogram(
+        distributions=None,
+        labels=None,
+        bins=100,
+        xlabel='Utility score',
+        ylabel='Density',
+        fontsize=18,
+        caption=None,
+        filename='utility_histogram.png',
+        svg=False,
+):
+
+    fig, ax = plt.subplots(figsize=(8,5))
+
+    for idx, values in enumerate(distributions):
+
+        label = ''
+        if labels is not None:
+            label = labels[idx]
+
+        plt.hist(
+            values,
+            bins=bins,
+            density=True,
+            alpha=0.5,
+            label=label
+        )
+
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+
+    if labels:
+        plt.legend()
+
+    if caption:
+        plt.title(caption)
+
+    plt.savefig(filename, bbox_inches='tight', dpi=500)
+    plt.close()
+
 
 def generate_online_performance_plot(
         performances=None,
