@@ -18,7 +18,7 @@ python3.8 multi_param_expr.py -c cfg/bp/std_net.json
 
 Each of the new temporary cfg files can then be used to do one run of backprop.
 ```sh
-python3.8 expr.py -c temp_cfg/0.json 
+python3.8 online_expr.py -c temp_cfg/0.json 
 ```
 
 Finally, after completing all the runs, the command below can be used to generate

@@ -3,8 +3,53 @@ import json
 import pickle
 import argparse
 from lop.utils.miscellaneous import *
-from lop.utils.plot_online_performance import generate_online_performance_plot
+from lop.utils.plot_online_performance import generate_online_performance_plot, generate_utility_histogram
 
+
+def add_cfg_utility_histogram(
+        cfg='',
+        setting_idx=0,
+        num_runs=30,
+        iteration=-1,
+        layer=None
+):
+
+    with open(cfg, 'r') as f:
+        params = json.load(f)
+
+    distributions = []
+
+    for idx in range(num_runs):
+
+        file = '../' + params['data_dir'] + str(setting_idx) + '/' + str(idx)
+
+        with open(file, 'rb') as f:
+            data = pickle.load(f)
+
+        utils = data['utils']
+
+        # utils:
+        # (iterations, layers, neurons)
+
+        if iteration == -1:
+            selected = utils[-1]
+        elif isinstance(iteration, list):
+            selected = utils[iteration]
+        else:
+            selected = utils[iteration]
+
+
+        if layer is not None:
+            selected = selected[:, layer] if selected.ndim == 3 else selected[layer]
+
+
+        selected = selected.reshape(-1)
+
+        distributions.append(selected.numpy())
+
+
+    # combine runs for this hyperparameter setting
+    return np.concatenate(distributions)
 
 def add_cfg_performance(cfg='', setting_idx=0, m=2*10*1000, num_runs=30, metric='accuracy'):
     with open(cfg, 'r') as f:
@@ -37,6 +82,18 @@ def main(arguments):
                             default='../cfg/bp/std_net.json')
     parser.add_argument('--metric', help="Specify the metric you want to plot, the options are: accuracy, weight,"
                                          " dead_neurons, and effective_rank", type=str, default='accuracy')
+    parser.add_argument(
+        '--utility_iteration',
+        type=int,
+        default=-1,
+        help='iteration to plot, -1 = last iteration'
+    )
+
+    parser.add_argument(
+        '--utility_layer',
+        type=int,
+        default=None
+    )
 
     args = parser.parse_args(arguments)
     cfg_file = args.cfg_file
@@ -46,11 +103,32 @@ def main(arguments):
         params = json.load(f)
     list_params, param_settings = get_configurations(params=params)
 
+    if metric == 'utility':
+
+        for i in range(len(param_settings)):
+            distribution = add_cfg_utility_histogram(
+                cfg=cfg_file,
+                setting_idx=i,
+                num_runs=params['num_runs'],
+                iteration=args.utility_iteration,
+                layer=args.utility_layer
+            )
+
+            generate_utility_histogram(
+                distributions=[distribution],
+                labels=[param_settings[i]],
+                bins=100,
+                caption=f'Utility distribution {param_settings[i]}',
+                filename=f'utility_hist_{i}.png'
+            )
+
+        return
+
     performances = []
     m = {'weight': 60*1000, 'accuracy': 60*1000, 'dead_neurons': 1, 'effective_rank': 1}[metric]
     num_runs = params['num_runs']
 
-    indices = [i for i in range(3)]
+    indices = range(len(param_settings))
     for i in indices:
         performances.append(add_cfg_performance(cfg=cfg_file, setting_idx=i, m=m, num_runs=num_runs, metric=metric))
 

@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from lop.algos.bp import Backprop
+from lop.algos.bp_kl_div import BackpropKL
 from lop.algos.cbp import ContinualBackprop
 from lop.nets.linear import MyLinear
 from torch.nn.functional import softmax
@@ -36,6 +37,8 @@ def online_expr(params: {}):
     replacement_rate = 0.0001
     decay_rate = 0.99
     maturity_threshold = 100
+    kl_div_scale = 0
+    power_law_alpha = -1.5
     util_type = 'adaptable_contribution'
 
     if 'to_log' in params.keys():
@@ -67,6 +70,10 @@ def online_expr(params: {}):
         maturity_threshold = params['mt']
     if 'util_type' in params.keys():
         util_type = params['util_type']
+    if 'kl_div_scale' in params.keys():
+        kl_div_scale = params['kl_div_scale']
+    if 'power_law_alpha' in params.keys():
+        power_law_alpha = params['power_law_alpha']
 
     classes_per_task = 10
     images_per_class = 6000
@@ -105,6 +112,21 @@ def online_expr(params: {}):
             accumulate=True,
             device=dev,
         )
+    elif agent_type in ['bp_kl_div']:
+        learner = BackpropKL(
+            net=net,
+            step_size=step_size,
+            opt=opt,
+            loss='nll',
+            kl_div_scale=kl_div_scale,
+            power_law_alpha=power_law_alpha,
+            replacement_rate=replacement_rate,
+            maturity_threshold=maturity_threshold,
+            decay_rate=decay_rate,
+            util_type=util_type,
+            accumulate=True,
+            device=dev,
+        )
 
     accuracy = nll_accuracy
     examples_per_task = images_per_class * classes_per_task
@@ -115,6 +137,12 @@ def online_expr(params: {}):
         save_after_every_n_tasks = int(num_tasks/10)
 
     accuracies = torch.zeros(total_iters, dtype=torch.float)
+    #util = [torch.zeros(net.layers[i * 2].out_features).to(dev) for i in range(num_hidden_layers)]
+
+    utils = torch.zeros(
+        (total_iters, num_hidden_layers, num_features),
+        dtype=torch.float
+    )
     weight_mag_sum = torch.zeros((total_iters, num_hidden_layers+1), dtype=torch.float)
 
     rank_measure_period = 60000
@@ -131,7 +159,7 @@ def online_expr(params: {}):
             x = x.to(dev)
             y = y.to(dev)
 
-    for task_idx in (range(num_tasks)):
+    for task_idx in tqdm(range(num_tasks)):
         new_iter_start = iter
         pixel_permutation = np.random.permutation(input_size)
         x = x[:, pixel_permutation]
@@ -163,6 +191,10 @@ def online_expr(params: {}):
             # log accuracy
             with torch.no_grad():
                 accuracies[iter] = accuracy(softmax(network_output, dim=1), batch_y).cpu()
+
+            # log uitl scores
+            if agent_type in ['bp_kl_div']:
+                utils[iter] = learner.util.cpu()
             iter += 1
 
         print('recent accuracy', accuracies[new_iter_start:iter - 1].mean())
@@ -175,6 +207,7 @@ def online_expr(params: {}):
                 'approximate_ranks': approximate_ranks.cpu(),
                 'abs_approximate_ranks': approximate_ranks_abs.cpu(),
                 'dead_neurons': dead_neurons.cpu(),
+                'utils': utils.cpu(),
             }
             save_data(file=params['data_file'], data=data)
 
@@ -186,6 +219,7 @@ def online_expr(params: {}):
         'approximate_ranks': approximate_ranks.cpu(),
         'abs_approximate_ranks': approximate_ranks_abs.cpu(),
         'dead_neurons': dead_neurons.cpu(),
+        'utils': utils.cpu(),
     }
     save_data(file=params['data_file'], data=data)
 
