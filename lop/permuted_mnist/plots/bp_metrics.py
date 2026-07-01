@@ -10,7 +10,6 @@ def add_cfg_utility_histogram(
         cfg='',
         setting_idx=0,
         num_runs=30,
-        iteration=-1,
         layer=None
 ):
 
@@ -28,19 +27,14 @@ def add_cfg_utility_histogram(
 
         utils = data['utils']
 
+
         # utils:
-        # (iterations, layers, neurons)
-
-        if iteration == -1:
-            selected = utils[-1]
-        elif isinstance(iteration, list):
-            selected = utils[iteration]
-        else:
-            selected = utils[iteration]
-
+        # (layers, neurons)
 
         if layer is not None:
-            selected = selected[:, layer] if selected.ndim == 3 else selected[layer]
+            selected = utils[layer]
+        else:
+            selected = utils
 
 
         selected = selected.reshape(-1)
@@ -48,7 +42,6 @@ def add_cfg_utility_histogram(
         distributions.append(selected.numpy())
 
 
-    # combine runs for this hyperparameter setting
     return np.concatenate(distributions)
 
 def add_cfg_performance(cfg='', setting_idx=0, m=2*10*1000, num_runs=30, metric='accuracy'):
@@ -82,12 +75,6 @@ def main(arguments):
                             default='../cfg/bp/std_net.json')
     parser.add_argument('--metric', help="Specify the metric you want to plot, the options are: accuracy, weight,"
                                          " dead_neurons, and effective_rank", type=str, default='accuracy')
-    parser.add_argument(
-        '--utility_iteration',
-        type=int,
-        default=-1,
-        help='iteration to plot, -1 = last iteration'
-    )
 
     parser.add_argument(
         '--utility_layer',
@@ -110,13 +97,11 @@ def main(arguments):
                 cfg=cfg_file,
                 setting_idx=i,
                 num_runs=params['num_runs'],
-                iteration=args.utility_iteration,
                 layer=args.utility_layer
             )
 
             generate_utility_histogram(
                 distributions=[distribution],
-                labels=[param_settings[i]],
                 bins=100,
                 caption=f'Utility distribution {param_settings[i]}',
                 filename=f'utility_hist_{i}.png'
@@ -132,14 +117,17 @@ def main(arguments):
     for i in indices:
         performances.append(add_cfg_performance(cfg=cfg_file, setting_idx=i, m=m, num_runs=num_runs, metric=metric))
 
-    yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [88, 90, 92, 94, 96],
+    yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
               'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
+    # yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [88, 90, 92, 94, 96],
+    #           'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
     generate_online_performance_plot(
         performances=performances,
         colors=['C1', 'C3', 'C5', 'C2', 'C4', 'C6'],
         yticks=yticks,
         xticks=[0, 200*m, 400*m, 600*m, 800*m],
         xticks_labels=['0', '200', '400', '600', '800'],
+        # xticks_labels=['0', '100', '200', '300','400'],
         m=m,
         fontsize=18,
         labels=param_settings,
