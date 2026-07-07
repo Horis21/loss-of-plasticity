@@ -1,20 +1,20 @@
 {
-"model_version": "BP on net with 3 hidden layer and 100 hidden-units",
+"model_version": "BP on net with 3 hidden layer and 2000 hidden-units",
 
   "_comment_1_": "List of problem/experiment parameters",
-  "num_runs":  3,
-  "num_tasks": 2,
+  "num_runs":  1,
+  "num_tasks": 200,
   "use_gpu": 1,
-  "data_dir": "data/bp_kl_div/toy/",
+  "data_dir": "data/bp_kl_div/prelim/",
   "to_log": true,
 
   "_comment_2_": "Learner parameters",
   "agent": "bp_kl_div",
   "opt": "sgd",
-  "num_features": 100,
+  "num_features": 2000,
   "num_hidden_layers": 3,
   "step_size": 0.03,
   "weight_decay": 0,
-  "kl_div_scale": [0, 0.1],
+  "kl_div_scale": [0, 0.05, 0.01, 1.0],
   "power_law_alpha": -1.5
 }

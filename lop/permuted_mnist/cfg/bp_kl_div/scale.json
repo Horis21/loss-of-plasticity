@@ -1,9 +1,9 @@
 {
-"model_version": "BP on net with 3 hidden layer and 2000 hidden-units",
+"model_version": "BP on net with 3 hidden layer and 100 hidden-units",
 
   "_comment_1_": "List of problem/experiment parameters",
-  "num_runs":  10,
-  "num_tasks": 800,
+  "num_runs":  3,
+  "num_tasks": 400,
   "use_gpu": 1,
   "data_dir": "data/bp_kl_div/scale/",
   "to_log": true,
@@ -15,6 +15,6 @@
   "num_hidden_layers": 3,
   "step_size": 0.03,
   "weight_decay": 0,
-  "kl_div_scale": [0, 1, 0.1, 0.01, 0.001],
+  "kl_div_scale": [0, 0.1],
   "power_law_alpha": -1.5
 }

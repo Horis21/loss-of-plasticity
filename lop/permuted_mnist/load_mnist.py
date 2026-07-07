@@ -27,8 +27,24 @@ def mnist():
         images = images.flatten(start_dim=1)
         labels = labels
 
+
+
     x = images
     y = labels
+
+
+
+
+    mask = y < 5
+    x = x[mask]
+    y = y[mask]
+
+
+    for i in range(10):
+        print(len(y[y == i]))
+
+
+
 
     for i, (images_test, labels_test) in enumerate(test_loader):
         images_test = images_test.flatten(start_dim=1)
@@ -36,6 +52,11 @@ def mnist():
 
     x_test = images_test
     y_test = labels_test
+
+    mask = y_test < 5
+    x_test = x_test[mask]
+    y_test = y_test[mask]
+
 
     with open('data/mnist_', 'wb+') as f:
         pickle.dump([x, y, x_test, y_test], f)

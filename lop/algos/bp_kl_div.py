@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import optim
@@ -24,6 +25,7 @@ class BackpropKL(object):
         self.util = None
         self.kl_div_scale = kl_div_scale
         self.power_law_alpha = power_law_alpha
+        self.bins = 100
 
         # define the optimizer
         if opt == 'sgd':
@@ -42,6 +44,8 @@ class BackpropKL(object):
         # Placeholder
         self.previous_features = None
 
+        self.target_power_law = self.compute_target_power_law()
+
         # define the generate-and-test object for the given network
         self.gnt = None
         self.gnt = GnT(
@@ -58,47 +62,53 @@ class BackpropKL(object):
             accumulate=accumulate,
         )
 
-    def copy_util_score(self, array_of_torch_tensors):
-        return torch.stack(array_of_torch_tensors).detach()
+    def compute_target_power_law(self):
+        # histogram bin centers
+        points = torch.linspace(
+           0.0,
+           1.0,
+            self.bins + 1,
+            device=self.device
+        )
 
-    def utility_powerlaw_kl(self, utilities, bins = 100,  eps=1e-8):
+        centers = (points[:-1] + points[1:]) / 2
+
+        # target power law P
+        # TODO: look into computing the integral over the bin
+        p = centers ** (self.power_law_alpha)
+        p = p / p.sum()
+
+        return p
+
+    def copy_util_score(self, array_of_torch_tensors):
+        return torch.stack(array_of_torch_tensors)
+
+    def utility_powerlaw_kl(self, utilities,  eps=1e-8):
 
         # flatten utilities
         u = utilities.flatten()
 
-        # power law only defined for positive values
-        u = torch.abs(u) + eps
+        # avoid division by 0
+        u += eps
 
-        # empirical distribution P
+        # scale-free
+        u = u / u.sum()
+
+        # empirical distribution Q
         hist = torch.histc(
             u,
-            bins=bins,
-            min=u.min(),
-            max=u.max()
+            bins=self.bins,
+            min=0.0,
+            max=1.0
         )
 
-        p = hist / hist.sum()
+        q = hist / hist.sum()
+        p = self.target_power_law
 
-        # histogram bin centers
-        edges = torch.linspace(
-            u.min(),
-            u.max(),
-            bins + 1,
-            device=u.device
-        )
+        # Forward `KL(P || Q)
+        kl = torch.sum(p * (torch.log(p+eps) - torch.log(q+eps)))
 
-        centers = (edges[:-1] + edges[1:]) / 2
-
-        # target power law Q
-        q = centers ** (self.power_law_alpha)
-        q = q / q.sum()
-
-        # TODO: look into pytorch KL function
-        # KL(P || Q)
-        kl = torch.sum(
-            p * torch.log((p + eps) / (q + eps))
-        )
-
+        #print("kl: ", kl)
         return kl
 
     def learn(self, x, target):
@@ -110,8 +120,8 @@ class BackpropKL(object):
         """
 
         output, features = self.net.predict(x=x)
-        task_loss = self.loss_func(output, target)
-        loss = task_loss
+        loss = self.loss_func(output, target)
+        #print("loss: ", loss)
         self.previous_features = features
 
 
@@ -123,10 +133,7 @@ class BackpropKL(object):
 
             # Add KL div loss
             if self.kl_div_scale > 0:
-                util_kl = self.utility_powerlaw_kl(
-                    self.util
-                )
-
+                util_kl = self.utility_powerlaw_kl(self.util)
                 loss = loss + self.kl_div_scale * util_kl
 
         self.opt.zero_grad()

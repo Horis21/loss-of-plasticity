@@ -25,12 +25,19 @@ def generate_utility_histogram(
         if labels is not None:
             label = labels[idx]
 
+        # plt.hist(
+        #     values,
+        #     bins=bins,
+        #     density=True,
+        #     alpha=0.5,
+        #     label=label
+        # )
+
         plt.hist(
             values,
             bins=bins,
             density=True,
-            alpha=0.5,
-            label=label
+            alpha=0.5
         )
 
 

@@ -110,7 +110,7 @@ def main(arguments):
         return
 
     performances = []
-    m = {'weight': 60*1000, 'accuracy': 60*1000, 'dead_neurons': 1, 'effective_rank': 1}[metric]
+    m = {'weight': 30*1000, 'accuracy': 30*1000, 'dead_neurons': 1, 'effective_rank': 1}[metric]
     num_runs = params['num_runs']
 
     indices = range(len(param_settings))
@@ -118,16 +118,17 @@ def main(arguments):
         performances.append(add_cfg_performance(cfg=cfg_file, setting_idx=i, m=m, num_runs=num_runs, metric=metric))
 
     yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-              'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
+             'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
     # yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [88, 90, 92, 94, 96],
-    #           'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
+    #            'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
     generate_online_performance_plot(
         performances=performances,
         colors=['C1', 'C3', 'C5', 'C2', 'C4', 'C6'],
         yticks=yticks,
-        xticks=[0, 200*m, 400*m, 600*m, 800*m],
-        xticks_labels=['0', '200', '400', '600', '800'],
-        # xticks_labels=['0', '100', '200', '300','400'],
+        xticks=[0, 50 * m, 100 * m, 150 * m, 200 * m],
+        # xticks=[0, 200*m, 400*m, 600*m, 800*m],
+        # xticks_labels=['0', '200', '400', '600', '800'],
+        xticks_labels=['0', '100', '200', '300','400'],
         m=m,
         fontsize=18,
         labels=param_settings,

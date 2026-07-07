@@ -29,7 +29,7 @@ def online_expr(params: {}):
     dev = 'cpu'
     to_log = False
     num_features = 2000
-    change_after = 10 * 6000
+    change_after = 5 * 6000
     to_perturb = False
     perturb_scale = 0.1
     num_hidden_layers = 1
@@ -38,7 +38,7 @@ def online_expr(params: {}):
     decay_rate = 0.99
     maturity_threshold = 100
     kl_div_scale = 0
-    power_law_alpha = -1.5
+    power_law_alpha = -3
     util_type = 'adaptable_contribution'
 
     if 'to_log' in params.keys():
@@ -75,12 +75,13 @@ def online_expr(params: {}):
     if 'power_law_alpha' in params.keys():
         power_law_alpha = params['power_law_alpha']
 
-    classes_per_task = 10
+    classes_per_task = 5
     images_per_class = 6000
     input_size = 784
     num_hidden_layers = num_hidden_layers
     net = DeepFFNN(input_size=input_size, num_features=num_features, num_outputs=classes_per_task,
                    num_hidden_layers=num_hidden_layers)
+
 
     if agent_type == 'linear':
         net = MyLinear(
@@ -139,10 +140,13 @@ def online_expr(params: {}):
     accuracies = torch.zeros(total_iters, dtype=torch.float)
     #util = [torch.zeros(net.layers[i * 2].out_features).to(dev) for i in range(num_hidden_layers)]
 
-    utils = torch.zeros(
-        (total_iters, num_hidden_layers, num_features),
-        dtype=torch.float
-    )
+    # utils = torch.zeros(
+    #     (total_iters, num_hidden_layers, num_features),
+    #     dtype=torch.float
+    # )
+
+    utils = None
+
     weight_mag_sum = torch.zeros((total_iters, num_hidden_layers+1), dtype=torch.float)
 
     rank_measure_period = 60000
@@ -158,6 +162,10 @@ def online_expr(params: {}):
         if use_gpu == 1:
             x = x.to(dev)
             y = y.to(dev)
+            x = x[:30000]
+            y = y[:30000]
+
+        print("number of images: ", len(x))
 
     for task_idx in tqdm(range(num_tasks)):
         new_iter_start = iter
@@ -194,7 +202,7 @@ def online_expr(params: {}):
 
             # log uitl scores
             if agent_type in ['bp_kl_div']:
-                utils[iter] = learner.util.cpu()
+                utils = learner.util.cpu()
             iter += 1
 
         print('recent accuracy', accuracies[new_iter_start:iter - 1].mean())
@@ -207,7 +215,7 @@ def online_expr(params: {}):
                 'approximate_ranks': approximate_ranks.cpu(),
                 'abs_approximate_ranks': approximate_ranks_abs.cpu(),
                 'dead_neurons': dead_neurons.cpu(),
-                'utils': utils.cpu(),
+                'utils': utils,
             }
             save_data(file=params['data_file'], data=data)
 
@@ -219,7 +227,7 @@ def online_expr(params: {}):
         'approximate_ranks': approximate_ranks.cpu(),
         'abs_approximate_ranks': approximate_ranks_abs.cpu(),
         'dead_neurons': dead_neurons.cpu(),
-        'utils': utils.cpu(),
+        'utils': utils,
     }
     save_data(file=params['data_file'], data=data)
 
