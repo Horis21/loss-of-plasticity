@@ -26,6 +26,8 @@ class BackpropKL(object):
         self.kl_div_scale = kl_div_scale
         self.power_law_alpha = power_law_alpha
         self.bins = 100
+        self.latest_loss = None
+        self.latest_kl = None
 
         # define the optimizer
         if opt == 'sgd':
@@ -83,7 +85,7 @@ class BackpropKL(object):
     def copy_util_score(self, array_of_torch_tensors):
         return torch.stack(array_of_torch_tensors)
 
-    def utility_powerlaw_kl(self, utilities,  eps=1e-8):
+    def utility_powerlaw_kl(self, utilities, bandwidth=0.01, eps=1e-8):
 
         # flatten utilities
         u = utilities.flatten()
@@ -94,15 +96,36 @@ class BackpropKL(object):
         # scale-free
         u = u / u.sum()
 
-        # empirical distribution Q
-        hist = torch.histc(
-            u,
-            bins=self.bins,
-            min=0.0,
-            max=1.0
+        # Evaluation points (same number as histogram bins)
+        x = torch.linspace(
+            0.0,
+            1.0,
+            self.bins,
+            device=u.device
         )
 
-        q = hist / hist.sum()
+        # print("shape x: ", x.shape)
+        # print("shape u: ", u.shape)
+        # print("x: ", x[:, None])
+        # print("u: ", u[None, :])
+        # Pairwise distances
+        # shape: (num_points, num_utilities)
+        diff = x[:, None] - u[None, :]
+
+        # print("shape diff: ", diff.shape)
+
+        # TODO: look into how to speed up KDE computation
+
+        # Gaussian kernel (constant cancels when normalizing)
+        kernels = torch.exp(-0.5 * (diff / bandwidth) ** 2)
+
+        # KDE estimate
+        q = kernels.mean(dim=1)
+
+        # Normalize to obtain a discrete probability distribution
+        q = q / (q.sum() + eps)
+
+
         p = self.target_power_law
 
         # Forward `KL(P || Q)
@@ -118,9 +141,9 @@ class BackpropKL(object):
         :param target: desired output
         :return: loss
         """
-
         output, features = self.net.predict(x=x)
         loss = self.loss_func(output, target)
+        self.latest_loss = loss.detach()
         #print("loss: ", loss)
         self.previous_features = features
 
@@ -131,14 +154,23 @@ class BackpropKL(object):
 
             self.util = self.copy_util_score(self.gnt.util)
 
+            # TODO: add kl div only every other n steps
             # Add KL div loss
-            if self.kl_div_scale > 0:
-                util_kl = self.utility_powerlaw_kl(self.util)
-                loss = loss + self.kl_div_scale * util_kl
+            util_kl = self.utility_powerlaw_kl(self.util)
+            self.latest_kl = util_kl.detach()
+
+            #print(self.util)
+            #print(self.util.is_leaf and not self.util.requires_grad)
+            #print(util_kl.is_leaf and not util_kl.requires_grad)
+            loss = loss + self.kl_div_scale * util_kl
+
 
         self.opt.zero_grad()
         loss.backward()
         self.opt.step()
+
+        # Detach utils
+        self.util = self.util.detach()
 
         if self.to_perturb:
             self.perturb()

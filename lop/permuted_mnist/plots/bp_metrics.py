@@ -63,8 +63,13 @@ def add_cfg_performance(cfg='', setting_idx=0, m=2*10*1000, num_runs=30, metric=
         elif metric == 'effective_rank':
             rank_normlization = 3*2000/100
             per_param_setting_performance.append(np.array(bin_m_errs(errs=data['effective_ranks'].sum(dim=1)/rank_normlization, m=m)))
+        elif metric == 'loss':
+            per_param_setting_performance.append(np.array(bin_m_errs(errs=data['losses'], m=m)))
+        elif metric == 'kl_div':
+            per_param_setting_performance.append(np.array(bin_m_errs(errs=data['kl_divs'], m=m)))
         else:
             per_param_setting_performance.append(np.array(bin_m_errs(errs=data['accuracies'] * 100, m=m)))
+
     print(param_settings[setting_idx], setting_idx, np.array(per_param_setting_performance).mean())
     return np.array(per_param_setting_performance)
 
@@ -110,7 +115,7 @@ def main(arguments):
         return
 
     performances = []
-    m = {'weight': 30*1000, 'accuracy': 30*1000, 'dead_neurons': 1, 'effective_rank': 1}[metric]
+    m = {'weight': 30*1000, 'accuracy': 30*1000, 'dead_neurons': 1, 'effective_rank': 1, 'loss': 30*1000, 'kl_div': 30*1000}[metric]
     num_runs = params['num_runs']
 
     indices = range(len(param_settings))
@@ -118,7 +123,7 @@ def main(arguments):
         performances.append(add_cfg_performance(cfg=cfg_file, setting_idx=i, m=m, num_runs=num_runs, metric=metric))
 
     yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-             'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
+             'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50], 'loss': [0.0,0.1, 0.2, 0.3, 0.4 , 0.5], 'kl_div': [0.0, 0.5, 1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]}[metric]
     # yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [88, 90, 92, 94, 96],
     #            'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
     generate_online_performance_plot(
@@ -128,7 +133,7 @@ def main(arguments):
         xticks=[0, 50 * m, 100 * m, 150 * m, 200 * m],
         # xticks=[0, 200*m, 400*m, 600*m, 800*m],
         # xticks_labels=['0', '200', '400', '600', '800'],
-        xticks_labels=['0', '100', '200', '300','400'],
+        xticks_labels=['0', '50', '100', '150','200'],
         m=m,
         fontsize=18,
         labels=param_settings,

@@ -85,7 +85,8 @@ class GnT(object):
         # self.save_cur_utils()
 
     def update_utility(self, layer_idx=0, features=None, next_features=None):
-        with torch.no_grad():
+        # Keep gradient to regularize loss
+        #with torch.no_grad():
             self.util[layer_idx] *= self.decay_rate
             """
             Adam-style bias correction
@@ -93,13 +94,17 @@ class GnT(object):
             bias_correction = 1 - self.decay_rate ** self.ages[layer_idx]
 
             self.mean_feature_act[layer_idx] *= self.decay_rate
-            self.mean_feature_act[layer_idx] -= - (1 - self.decay_rate) * features.mean(dim=0)
+
+            # Detach old means
+            self.mean_feature_act[layer_idx] = self.mean_feature_act[layer_idx].detach() + (1 - self.decay_rate) * features.mean(dim=0)
             bias_corrected_act = self.mean_feature_act[layer_idx] / bias_correction
 
             current_layer = self.net[layer_idx * 2]
             next_layer = self.net[layer_idx * 2 + 2]
-            output_wight_mag = next_layer.weight.data.abs().mean(dim=0)
-            input_wight_mag = current_layer.weight.data.abs().mean(dim=1)
+
+            # Remove .data() for gradient
+            output_wight_mag = next_layer.weight.abs().mean(dim=0)
+            input_wight_mag = current_layer.weight.abs().mean(dim=1)
 
             if self.util_type == 'weight':
                 new_util = output_wight_mag
@@ -117,7 +122,8 @@ class GnT(object):
             else:
                 new_util = 0
 
-            self.util[layer_idx] += (1 - self.decay_rate) * new_util
+            # Detach past utility scores
+            self.util[layer_idx] = self.util[layer_idx].detach() + (1 - self.decay_rate) * new_util
 
             """
             Adam-style bias correction

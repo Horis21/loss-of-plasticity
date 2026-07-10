@@ -2,6 +2,7 @@ import sys
 import json
 import torch
 import pickle
+import gc
 import argparse
 import numpy as np
 from tqdm import tqdm
@@ -155,6 +156,8 @@ def online_expr(params: {}):
     approximate_ranks_abs = torch.zeros((int(total_examples/rank_measure_period), num_hidden_layers), dtype=torch.float)
     ranks = torch.zeros((int(total_examples/rank_measure_period), num_hidden_layers), dtype=torch.float)
     dead_neurons = torch.zeros((int(total_examples/rank_measure_period), num_hidden_layers), dtype=torch.float)
+    losses = torch.zeros(total_iters, dtype=torch.float)
+    kl_divs = torch.zeros(total_iters, dtype=torch.float)
 
     iter = 0
     with open('data/mnist_', 'rb+') as f:
@@ -190,6 +193,10 @@ def online_expr(params: {}):
             batch_x = x[start_idx: start_idx+mini_batch_size]
             batch_y = y[start_idx: start_idx+mini_batch_size]
 
+            if iter % 1000 == 0:
+                print(torch.cuda.memory_summary())
+                print(len(gc.get_objects()))
+
             # train the network
             loss, network_output = learner.learn(x=batch_x, target=batch_y)
 
@@ -199,10 +206,13 @@ def online_expr(params: {}):
             # log accuracy
             with torch.no_grad():
                 accuracies[iter] = accuracy(softmax(network_output, dim=1), batch_y).cpu()
+                losses[iter] = learner.latest_loss.cpu()
 
             # log uitl scores
             if agent_type in ['bp_kl_div']:
                 utils = learner.util.cpu()
+                kl_divs[iter] = learner.latest_kl.cpu()
+
             iter += 1
 
         print('recent accuracy', accuracies[new_iter_start:iter - 1].mean())
@@ -215,7 +225,9 @@ def online_expr(params: {}):
                 'approximate_ranks': approximate_ranks.cpu(),
                 'abs_approximate_ranks': approximate_ranks_abs.cpu(),
                 'dead_neurons': dead_neurons.cpu(),
-                'utils': utils,
+                'utils': utils.cpu(),
+                'losses': losses.cpu(),
+                'kl_divs': kl_divs.cpu(),
             }
             save_data(file=params['data_file'], data=data)
 
@@ -227,7 +239,9 @@ def online_expr(params: {}):
         'approximate_ranks': approximate_ranks.cpu(),
         'abs_approximate_ranks': approximate_ranks_abs.cpu(),
         'dead_neurons': dead_neurons.cpu(),
-        'utils': utils,
+        'utils': utils.cpu(),
+        'losses': losses.cpu(),
+        'kl_divs': kl_divs.cpu(),
     }
     save_data(file=params['data_file'], data=data)
 
