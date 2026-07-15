@@ -30,7 +30,6 @@ def online_expr(params: {}):
     dev = 'cpu'
     to_log = False
     num_features = 2000
-    change_after = 5 * 6000
     to_perturb = False
     perturb_scale = 0.1
     num_hidden_layers = 1
@@ -78,6 +77,7 @@ def online_expr(params: {}):
 
     classes_per_task = 5
     images_per_class = 6000
+    change_after = classes_per_task * images_per_class
     input_size = 784
     num_hidden_layers = num_hidden_layers
     net = DeepFFNN(input_size=input_size, num_features=num_features, num_outputs=classes_per_task,
@@ -193,9 +193,9 @@ def online_expr(params: {}):
             batch_x = x[start_idx: start_idx+mini_batch_size]
             batch_y = y[start_idx: start_idx+mini_batch_size]
 
-            if iter % 1000 == 0:
-                print(torch.cuda.memory_summary())
-                print(len(gc.get_objects()))
+            # if iter % 1000 == 0:
+            #     print(torch.cuda.memory_summary())
+            #     print(len(gc.get_objects()))
 
             # train the network
             loss, network_output = learner.learn(x=batch_x, target=batch_y)
@@ -206,12 +206,12 @@ def online_expr(params: {}):
             # log accuracy
             with torch.no_grad():
                 accuracies[iter] = accuracy(softmax(network_output, dim=1), batch_y).cpu()
-                losses[iter] = learner.latest_loss.cpu()
 
             # log uitl scores
             if agent_type in ['bp_kl_div']:
-                utils = learner.util.cpu()
+                utils = learner.latest_util.cpu()
                 kl_divs[iter] = learner.latest_kl.cpu()
+                losses[iter] = learner.latest_loss.cpu()
 
             iter += 1
 

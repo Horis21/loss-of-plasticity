@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
+from matplotlib import pyplot as plt
 from torch import optim
 
 from lop.algos.gnt import GnT
@@ -28,7 +29,7 @@ class BackpropKL(object):
         self.bins = 100
         self.latest_loss = None
         self.latest_kl = None
-
+        self.latest_util = None
         # define the optimizer
         if opt == 'sgd':
             self.opt = optim.SGD(self.net.parameters(), lr=step_size, weight_decay=weight_decay, momentum=momentum)
@@ -68,17 +69,22 @@ class BackpropKL(object):
         # histogram bin centers
         points = torch.linspace(
            0.0,
-           1.0,
+            1.0,
             self.bins + 1,
             device=self.device
         )
 
         centers = (points[:-1] + points[1:]) / 2
 
-        # target power law P
         # TODO: look into computing the integral over the bin
-        p = centers ** (self.power_law_alpha)
+
+        # target power law P
+        p = (centers + 0.5) ** self.power_law_alpha
         p = p / p.sum()
+
+        # plt.plot(centers.cpu().numpy(), p.cpu().numpy())
+        # plt.show()
+        # plt.close()
 
         return p
 
@@ -86,12 +92,8 @@ class BackpropKL(object):
         return torch.stack(array_of_torch_tensors)
 
     def utility_powerlaw_kl(self, utilities, bandwidth=0.01, eps=1e-8):
-
-        # flatten utilities
-        u = utilities.flatten()
-
-        # avoid division by 0
-        u += eps
+        # flatten utilities and avoid division by 0 (out of place)
+        u = utilities.flatten() + eps
 
         # scale-free
         u = u / u.sum()
@@ -104,15 +106,7 @@ class BackpropKL(object):
             device=u.device
         )
 
-        # print("shape x: ", x.shape)
-        # print("shape u: ", u.shape)
-        # print("x: ", x[:, None])
-        # print("u: ", u[None, :])
-        # Pairwise distances
-        # shape: (num_points, num_utilities)
         diff = x[:, None] - u[None, :]
-
-        # print("shape diff: ", diff.shape)
 
         # TODO: look into how to speed up KDE computation
 
@@ -125,11 +119,10 @@ class BackpropKL(object):
         # Normalize to obtain a discrete probability distribution
         q = q / (q.sum() + eps)
 
-
         p = self.target_power_law
 
         # Forward `KL(P || Q)
-        kl = torch.sum(p * (torch.log(p+eps) - torch.log(q+eps)))
+        kl = torch.sum(q * (torch.log(q+eps) - torch.log(p+eps)))
 
         #print("kl: ", kl)
         return kl
@@ -159,9 +152,6 @@ class BackpropKL(object):
             util_kl = self.utility_powerlaw_kl(self.util)
             self.latest_kl = util_kl.detach()
 
-            #print(self.util)
-            #print(self.util.is_leaf and not self.util.requires_grad)
-            #print(util_kl.is_leaf and not util_kl.requires_grad)
             loss = loss + self.kl_div_scale * util_kl
 
 
@@ -169,8 +159,8 @@ class BackpropKL(object):
         loss.backward()
         self.opt.step()
 
-        # Detach utils
-        self.util = self.util.detach()
+        # Detach utils for logging
+        self.latest_util = self.util.detach()
 
         if self.to_perturb:
             self.perturb()

@@ -27,6 +27,14 @@ def add_cfg_utility_histogram(
 
         utils = data['utils']
 
+        print(utils)
+
+        # Normalize util scores
+        utils = utils / utils.sum()
+
+        # Normalize util scores to the maximum
+        # utils = utils / utils.max()
+
 
         # utils:
         # (layers, neurons)
@@ -115,15 +123,16 @@ def main(arguments):
         return
 
     performances = []
-    m = {'weight': 30*1000, 'accuracy': 30*1000, 'dead_neurons': 1, 'effective_rank': 1, 'loss': 30*1000, 'kl_div': 30*1000}[metric]
+    iterations = 30*1000
+    m = {'weight': iterations, 'accuracy': iterations, 'dead_neurons': 1, 'effective_rank': 1, 'loss': iterations, 'kl_div': iterations}[metric]
     num_runs = params['num_runs']
 
     indices = range(len(param_settings))
     for i in indices:
         performances.append(add_cfg_performance(cfg=cfg_file, setting_idx=i, m=m, num_runs=num_runs, metric=metric))
 
-    yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-             'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50], 'loss': [0.0,0.1, 0.2, 0.3, 0.4 , 0.5], 'kl_div': [0.0, 0.5, 1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]}[metric]
+    yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [88, 90, 92, 94, 96, 98, 100],
+             'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50], 'loss': [0.0,0.1, 0.2, 0.3, 0.4 , 0.5], 'kl_div': [7.0, 8.0, 9.0, 10.0, 11.0, 12.0]}[metric]
     # yticks = {'weight': [0, 0.02, 0.04, 0.06, 0.08, 0.10], 'accuracy': [88, 90, 92, 94, 96],
     #            'dead_neurons': [0, 10, 20, 30], 'effective_rank': [0, 10, 20, 30, 40, 50]}[metric]
     generate_online_performance_plot(

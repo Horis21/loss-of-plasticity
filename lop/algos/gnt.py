@@ -87,7 +87,8 @@ class GnT(object):
     def update_utility(self, layer_idx=0, features=None, next_features=None):
         # Keep gradient to regularize loss
         #with torch.no_grad():
-            self.util[layer_idx] *= self.decay_rate
+            # Detach before any further computation
+            self.util[layer_idx] = self.util[layer_idx].detach() * self.decay_rate
             """
             Adam-style bias correction
             """
@@ -123,7 +124,7 @@ class GnT(object):
                 new_util = 0
 
             # Detach past utility scores
-            self.util[layer_idx] = self.util[layer_idx].detach() + (1 - self.decay_rate) * new_util
+            self.util[layer_idx] = self.util[layer_idx] + (1 - self.decay_rate) * new_util
 
             """
             Adam-style bias correction

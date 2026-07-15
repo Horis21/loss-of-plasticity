@@ -16,42 +16,66 @@ def generate_utility_histogram(
         filename='utility_histogram.png',
         svg=False,
 ):
+    fig, ax = plt.subplots(figsize=(8, 5))
 
-    fig, ax = plt.subplots(figsize=(8,5))
+    xmin = 1e-6  # avoid x=0 singularity
+    xmax = 0.35
 
+    # Plot histograms
     for idx, values in enumerate(distributions):
+        label = labels[idx] if labels is not None else None
 
-        label = ''
-        if labels is not None:
-            label = labels[idx]
-
-        # plt.hist(
-        #     values,
-        #     bins=bins,
-        #     density=True,
-        #     alpha=0.5,
-        #     label=label
-        # )
-
-        plt.hist(
+        ax.hist(
             values,
             bins=bins,
             density=True,
-            alpha=0.5
+            range=(0.0, xmax),
+            alpha=0.45,
+            label=label,
         )
 
+    # ------------------------------------------------------------------
+    # Overlay normalized power law
+    # ------------------------------------------------------------------
+    x = np.linspace(xmin , xmax, 1000)
+    power_law_alpha = -3
+
+    shift = 0.5
+
+    # Evaluate the power law at shifted coordinates
+    p = (x + shift) ** power_law_alpha
+
+
+
+    # Normalize over the plotted x-range
+    p /= np.trapz(p, x)
+
+    p /= p.sum()
+
+    ax.plot(
+        x,
+        p,
+        color='black',
+        linewidth=2.5,
+        linestyle='--',
+        label=rf'Power law ($\alpha={power_law_alpha}$)'
+    )
+
+    # ------------------------------------------------------------------
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
+    ax.set_xlim(0, xmax)
 
-    if labels:
-        plt.legend()
+    ax.set_xlabel(xlabel, fontsize=fontsize)
+    ax.set_ylabel(ylabel, fontsize=fontsize)
 
-    if caption:
-        plt.title(caption)
+    if labels is not None:
+        ax.legend(fontsize=fontsize - 2)
+
+    if caption is not None:
+        ax.set_title(caption, fontsize=fontsize)
 
     plt.savefig(filename, bbox_inches='tight', dpi=500)
     plt.close()
